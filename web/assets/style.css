@@ -1,0 +1,5 @@
+/* Drobne nadpisania ponad Tailwind — ukrycie flash-a Alpine przed init. */
+[x-cloak] { display: none !important; }
+
+/* Typografia dla długich tekstów LLM */
+body { font-feature-settings: "cv11", "ss01", "ss03"; }

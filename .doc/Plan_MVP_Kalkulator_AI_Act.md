@@ -26,19 +26,19 @@ ai-act-calculator/
 ├── .gitignore                # secrets/, .env, __pycache__, *.pdf
 ├── secrets/
 │   └── vertex-wfirma-dev-ea19981c2c30.json   # service account (NIE commitować)
-├── legal_sources/            # korpus prawny — źródło autorytatywne (FORMEX XML z EUR-Lex)
-│   ├── README.md             # co jest skąd, jak odświeżyć
-│   ├── raw/                  # pełne pliki FORMEX XML pobrane z EUR-Lex, NIEMODYFIKOWANE
-│   │   ├── 32024R1689.xml    # AI Act 2024/1689 (PL)
+├── legal_sources/            # korpus prawny — źródło autorytatywne (XHTML z EUR-Lex)
+│   ├── README.md             # co jest skąd, jak odświeżyć, dlaczego XHTML nie FORMEX
+│   ├── raw/                  # pełne XHTML-e pobrane z EUR-Lex, NIEMODYFIKOWANE
+│   │   ├── 32024R1689.html   # AI Act 2024/1689 (PL)
 │   │   ├── 32024R1689.meta.json  # {celex, eli, url, data_pobrania, data_weryfikacji, sha256}
-│   │   ├── 12012P_TXT.xml    # Karta Praw Podstawowych UE
+│   │   ├── 12012P_TXT.html   # Karta Praw Podstawowych UE
 │   │   ├── 12012P_TXT.meta.json
-│   │   ├── 32016R0679.xml    # RODO 2016/679
+│   │   ├── 32016R0679.html   # RODO 2016/679
 │   │   └── 32016R0679.meta.json
 │   └── fallback/             # kopia raw/ z momentu buildu — używana offline
 │       └── (identyczne pliki)
 ├── scripts/
-│   └── refresh_sources.py    # pobiera XML z EUR-Lex → raw/ + aktualizuje meta.json
+│   └── refresh_sources.py    # pobiera XHTML z EUR-Lex → raw/ + aktualizuje meta.json
 ├── api/                      # backend: FastAPI + logika + Vertex AI
 │   ├── Dockerfile
 │   ├── requirements.txt      # fastapi, uvicorn, google-cloud-aiplatform, vertexai, weasyprint, pydantic
@@ -46,7 +46,7 @@ ai-act-calculator/
 │   ├── classifier.py         # deterministyczne reguły → kategoria ryzyka
 │   ├── vertex_client.py      # Gemini przez vertexai SDK
 │   ├── prompts.py            # system prompt + schemat JSON odpowiedzi (grounding z legal.py)
-│   ├── legal.py              # startup refresh + parsowanie FORMEX XML + dostęp per-artykuł
+│   ├── legal.py              # startup refresh + parsowanie XHTML (lxml) + dostęp per-artykuł
 │   ├── report.py             # WeasyPrint → PDF (reużywam template z kazusu)
 │   ├── templates/
 │   │   └── report.html       # szablon raportu
@@ -334,9 +334,11 @@ Jednostronicowa aplikacja, dwa stany (Alpine `x-data`: `step='form' | 'result'`)
 
 ---
 
-## 4. Źródła prawne — FORMEX XML z EUR-Lex, refresh przy starcie + offline fallback
+## 4. Źródła prawne — XHTML z EUR-Lex, refresh przy starcie + offline fallback
 
-Narzędzie traktuje **FORMEX XML z EUR-Lex** jako **jedyne autorytatywne źródło** tekstów prawnych (nie Markdown — ten byłby naszą interpretacją, nieweryfikowalną). Korpus jest odświeżany przy starcie kontenera + raz dziennie w tle; gdy sieć padnie, aplikacja używa kopii z repo (`fallback/`). Każda odpowiedź narzędzia zawiera proweniencję (CELEX, ELI, data, sha256) nadającą się do audytu.
+Narzędzie traktuje **XHTML z EUR-Lex** jako **jedyne autorytatywne źródło** tekstów prawnych (nie Markdown — ten byłby naszą interpretacją, nieweryfikowalną). Korpus jest odświeżany przy starcie kontenera + raz dziennie w tle; gdy sieć padnie, aplikacja używa kopii z repo (`fallback/`). Każda odpowiedź narzędzia zawiera proweniencję (CELEX, ELI, data, sha256) nadającą się do audytu.
+
+> **Uwaga o formacie:** rozważaliśmy FORMEX XML, ale endpoint `/legal-content/PL/TXT/XML/` w EUR-Lex zwraca tylko **NOTICE** (metadane Cellar), nie tekst ustawy. Właściwy tekst po polsku dostępny jest pod `/legal-content/PL/TXT/HTML/` jako strukturalny XHTML z jasną semantyką (`<div id="art_5">`, `<div id="anx_III">`, `<p class="oj-normal">`). To parsujemy `lxml`-em + XPath.
 
 ### 4.1 Wykaz źródeł i endpointy EUR-Lex
 

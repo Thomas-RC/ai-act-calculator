@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pl" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kalkulator ryzyka AI Act</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: {
+              50:  '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+              400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+              800: '#3730a3', 900: '#312e81'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- KOLEJNOŚĆ MA ZNACZENIE: app.js MUSI się wykonać zanim Alpine wywoła x-data="app()".
+       Alpine 3 startuje synchronicznie gdy jego defer script się wykona (readyState != 'loading'),
+       więc app.js jako defer MUSI być wcześniej w DOM, żeby defer-order go pierwszego wykonał. -->
+  <script defer src="/assets/app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body class="min-h-full bg-slate-50 text-slate-900 font-sans antialiased" x-data="app()" x-init="init()" x-cloak>
+
+  <!-- ───────── HEADER ───────── -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center">
+          <i data-lucide="scale" class="text-white w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight">Kalkulator ryzyka AI Act</h1>
+          <p class="text-xs text-slate-500">Rozporządzenie (UE) 2024/1689</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-600" x-show="meta.length">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+          EOG-only
+        </span>
+        <span class="hidden sm:inline">Korpus: <span class="font-medium" x-text="meta[0]?.data_pobrania?.slice(0,10)"></span></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-10">
+
+    <!-- ═════════════════ WIDOK 1: LANDING / ANKIETA ═════════════════ -->
+    <template x-if="step === 'form'">
+      <div>
+        <!-- Lead -->
+        <section class="mb-10 text-center">
+          <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">Sklasyfikuj swój system AI</h2>
+          <p class="mt-3 text-slate-600 max-w-2xl mx-auto">
+            Odpowiedz na 10 pytań. Otrzymasz kategorię ryzyka wg AI Act, listę obowiązków prawnych
+            i raport PDF. Klasyfikacja jest <strong>doradcza</strong>, nie zastępuje porady prawnej.
+          </p>
+        </section>
+
+        <!-- Formularz: 4 sekcje -->
+        <form @submit.prevent="klasyfikuj()" class="space-y-6">
+
+          <!-- SEKCJA A -->
+          <fieldset class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <legend class="text-sm font-semibold text-brand-700 uppercase tracking-wider">A · Identyfikacja systemu</legend>
+
+            <div class="mt-4 space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Krótki opis systemu AI <span class="text-rose-600">*</span></label>
+                <textarea x-model="ankieta.opis" required minlength="10" maxlength="2000" rows="3"
+                  class="w-full rounded-lg border-slate-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                  placeholder="Np. system do automatycznej analizy wniosków o refundację leków w NFZ…"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Główny cel systemu <span class="text-rose-600">*</span></label>
+                <input type="text" x-model="ankieta.cel_systemu" required minlength="3" maxlength="200"
+                  class="w-full rounded-lg border-slate-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                  placeholder="Np. wstępna selekcja wniosków + rekomendacja decyzji" />
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- SEKCJA B — FILTR ART. 5 -->
+          <fieldset class="bg-white rounded-2xl shadow-sm border border-rose-200 p-6">
+            <legend class="text-sm font-semibold text-rose-700 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="ban" class="w-4 h-4"></i>
+              B · Filtr Art. 5 — zakazane praktyki
+            </legend>
+            <p class="mt-2 text-sm text-slate-600">Czy system realizuje którekolwiek z poniższych?</p>
+            <div class="mt-4 space-y-2">
+              <template x-for="p in praktykiZakazaneLista" :key="p.v">
+                <label class="flex items-start gap-3 p-2 rounded-lg hover:bg-rose-50 cursor-pointer">
+                  <input type="checkbox" :value="p.v" x-model="ankieta.praktyki_zakazane"
+                    class="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                  <span>
+                    <span class="font-medium text-slate-800" x-text="p.t"></span>
+                    <span class="block text-xs text-slate-500" x-text="p.d"></span>
+                  </span>
+                </label>
+              </template>
+            </div>
+          </fieldset>
+
+          <!-- SEKCJA C — ZAKRES I KONTEKST -->
+          <fieldset class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <legend class="text-sm font-semibold text-brand-700 uppercase tracking-wider">C · Zakres i kontekst</legend>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+
+              <div class="sm:col-span-2">
+                <label class="block text-sm font-medium text-slate-700 mb-1">Sektor wdrożenia (Zał. III AI Act) <span class="text-rose-600">*</span></label>
+                <select x-model="ankieta.sektor" required
+                  class="w-full rounded-lg border-slate-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">
+                  <template x-for="s in sektoryLista" :key="s.v">
+                    <option :value="s.v" x-text="s.t"></option>
+                  </template>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Typ użytkownika końcowego <span class="text-rose-600">*</span></label>
+                <input type="text" x-model="ankieta.uzytkownik_koncowy" required minlength="3" maxlength="200"
+                  class="w-full rounded-lg border-slate-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                  placeholder="Np. pacjent, pracownik, obywatel" />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Stopień autonomii decyzji <span class="text-rose-600">*</span></label>
+                <select x-model="ankieta.autonomia" required
+                  class="w-full rounded-lg border-slate-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">
+                  <option value="doradczy">Doradczy (człowiek decyduje)</option>
+                  <option value="wsparcie">Wsparcie decyzji (człowiek wybiera z opcji AI)</option>
+                  <option value="automatyczna">Automatyczna (człowiek tylko monitoruje)</option>
+                </select>
+              </div>
+
+              <div class="sm:col-span-2">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Typy danych wejściowych</label>
+                <div class="flex flex-wrap gap-2">
+                  <template x-for="d in daneLista" :key="d.v">
+                    <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-300 text-sm cursor-pointer hover:border-brand-400"
+                      :class="ankieta.dane_wejsciowe.includes(d.v) ? 'bg-brand-50 border-brand-500 text-brand-700' : ''">
+                      <input type="checkbox" :value="d.v" x-model="ankieta.dane_wejsciowe" class="sr-only" />
+                      <span x-text="d.t"></span>
+                    </label>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- SEKCJA D — DODATKOWE -->
+          <fieldset class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <legend class="text-sm font-semibold text-brand-700 uppercase tracking-wider">D · Elementy dodatkowe</legend>
+
+            <div class="mt-4 space-y-4">
+              <label class="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" x-model="ankieta.zal_I_produkt"
+                  class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                <span>
+                  <span class="font-medium text-slate-800">System jest komponentem produktu z Zał. I AI Act (CE)</span>
+                  <span class="block text-xs text-slate-500">Np. wyrób medyczny, zabawka, maszyna, motoryzacja — objęty unijnym prawem harmonizacyjnym.</span>
+                </span>
+              </label>
+
+              <label class="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" x-model="ankieta.art_50_generacja_lub_interakcja"
+                  class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                <span>
+                  <span class="font-medium text-slate-800">System generuje treści lub wchodzi w interakcję z człowiekiem (Art. 50)</span>
+                  <span class="block text-xs text-slate-500">Np. chatbot, generator obrazów, synteza mowy, deepfake.</span>
+                </span>
+              </label>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Rola użytkownika <span class="text-rose-600">*</span></label>
+                <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+                  <template x-for="r in ['dostawca', 'deployer', 'obie']" :key="r">
+                    <button type="button" @click="ankieta.rola = r"
+                      class="px-4 py-2 text-sm font-medium capitalize transition"
+                      :class="ankieta.rola === r ? 'bg-brand-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'"
+                      x-text="r"></button>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Submit -->
+          <div class="flex items-center justify-end gap-3 pt-4">
+            <button type="button" @click="resetForm()"
+              class="px-5 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+              Wyczyść
+            </button>
+            <button type="submit"
+              class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 text-white font-medium shadow-sm hover:shadow-md hover:from-brand-700 hover:to-brand-800 transition">
+              Klasyfikuj system
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </form>
+      </div>
+    </template>
+
+    <!-- ═════════════════ WIDOK 2: LOADING ═════════════════ -->
+    <template x-if="step === 'loading'">
+      <div class="flex flex-col items-center justify-center py-20">
+        <div class="w-12 h-12 rounded-full border-4 border-brand-200 border-t-brand-600 animate-spin"></div>
+        <p class="mt-6 text-slate-600">Analiza systemu przez reguły AI Act + Gemini (europe-west9)…</p>
+      </div>
+    </template>
+
+    <!-- ═════════════════ WIDOK 3: BŁĄD ═════════════════ -->
+    <template x-if="step === 'error'">
+      <div class="bg-rose-50 border border-rose-200 rounded-2xl p-6">
+        <div class="flex items-start gap-3">
+          <i data-lucide="alert-circle" class="w-6 h-6 text-rose-600 shrink-0 mt-0.5"></i>
+          <div class="flex-1">
+            <h3 class="font-semibold text-rose-900">Nie udało się przetworzyć zgłoszenia</h3>
+            <p class="mt-1 text-sm text-rose-700" x-text="error"></p>
+            <button @click="step = 'form'" class="mt-4 px-4 py-2 text-sm bg-white border border-rose-300 text-rose-700 rounded-lg hover:bg-rose-50">
+              Wróć do formularza
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═════════════════ WIDOK 4: WYNIK ═════════════════ -->
+    <template x-if="step === 'result' && wynik">
+      <div class="space-y-6">
+
+        <!-- Badge kategorii -->
+        <div :class="kategoriaBg"
+          class="rounded-2xl p-8 text-white shadow-lg">
+          <div class="flex items-start gap-4">
+            <i :data-lucide="kategoriaIcon" class="w-10 h-10 shrink-0"></i>
+            <div class="flex-1">
+              <p class="text-sm uppercase tracking-wider opacity-90">Kategoria ryzyka</p>
+              <h2 class="text-3xl sm:text-4xl font-bold mt-1" x-text="wynik.kategoria"></h2>
+              <p class="mt-2 text-sm opacity-90">
+                Podstawa: <span class="font-medium" x-text="wynik.wynik_reguly.legal_basis.join(', ') || 'brak'"></span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Uzasadnienie z LLM -->
+        <template x-if="wynik.wynik_llm">
+          <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <i data-lucide="file-text" class="w-5 h-5 text-brand-600"></i>
+              Uzasadnienie
+            </h3>
+            <p class="mt-3 text-slate-700 leading-relaxed" x-text="wynik.wynik_llm.uzasadnienie"></p>
+          </section>
+        </template>
+
+        <!-- Historia reguł: co zdecydowało -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <h3 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <i data-lucide="git-branch" class="w-5 h-5 text-brand-600"></i>
+            Historia decyzji klasyfikatora
+          </h3>
+          <ol class="mt-4 space-y-2">
+            <template x-for="(krok, i) in wynik.wynik_reguly.reguly_zastosowane" :key="i">
+              <li class="flex gap-3 text-sm">
+                <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-medium shrink-0" x-text="i + 1"></span>
+                <div>
+                  <p class="font-medium text-slate-800" x-text="krok.nazwa"></p>
+                  <p class="text-slate-600" x-text="krok.opis"></p>
+                </div>
+              </li>
+            </template>
+          </ol>
+        </section>
+
+        <!-- Obowiązki dwukolumnowo -->
+        <template x-if="wynik.wynik_llm">
+          <div class="grid gap-6 md:grid-cols-2">
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <h3 class="font-semibold text-slate-900 flex items-center gap-2">
+                <i data-lucide="factory" class="w-5 h-5 text-brand-600"></i>
+                Obowiązki dostawcy
+              </h3>
+              <ul class="mt-3 space-y-2">
+                <template x-for="(o, i) in wynik.wynik_llm.obowiazki_dostawcy" :key="i">
+                  <li class="flex gap-2 text-sm">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span>
+                      <span x-text="o.tekst"></span>
+                      <code class="ml-1 text-xs text-slate-500" x-text="'(' + o.podstawa + ')'"></code>
+                    </span>
+                  </li>
+                </template>
+                <template x-if="!wynik.wynik_llm.obowiazki_dostawcy.length">
+                  <li class="text-sm text-slate-500 italic">Brak specyficznych obowiązków dostawcy.</li>
+                </template>
+              </ul>
+            </section>
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <h3 class="font-semibold text-slate-900 flex items-center gap-2">
+                <i data-lucide="building" class="w-5 h-5 text-brand-600"></i>
+                Obowiązki deployera
+              </h3>
+              <ul class="mt-3 space-y-2">
+                <template x-for="(o, i) in wynik.wynik_llm.obowiazki_deployera" :key="i">
+                  <li class="flex gap-2 text-sm">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span>
+                      <span x-text="o.tekst"></span>
+                      <code class="ml-1 text-xs text-slate-500" x-text="'(' + o.podstawa + ')'"></code>
+                    </span>
+                  </li>
+                </template>
+                <template x-if="!wynik.wynik_llm.obowiazki_deployera.length">
+                  <li class="text-sm text-slate-500 italic">Brak specyficznych obowiązków deployera.</li>
+                </template>
+              </ul>
+            </section>
+          </div>
+        </template>
+
+        <!-- Wątpliwości -->
+        <template x-if="wynik.wynik_llm && wynik.wynik_llm.watpliwosci_interpretacyjne.length">
+          <section class="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+            <h3 class="font-semibold text-amber-900 flex items-center gap-2">
+              <i data-lucide="help-circle" class="w-5 h-5"></i>
+              Wątpliwości interpretacyjne
+            </h3>
+            <ul class="mt-3 space-y-1.5 text-sm text-amber-900">
+              <template x-for="(w, i) in wynik.wynik_llm.watpliwosci_interpretacyjne" :key="i">
+                <li class="flex gap-2"><span>•</span><span x-text="w"></span></li>
+              </template>
+            </ul>
+          </section>
+        </template>
+
+        <!-- Rekomendacje -->
+        <template x-if="wynik.wynik_llm && wynik.wynik_llm.rekomendacje_nastepne_kroki.length">
+          <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h3 class="font-semibold text-slate-900 flex items-center gap-2">
+              <i data-lucide="list-checks" class="w-5 h-5 text-brand-600"></i>
+              Rekomendowane następne kroki
+            </h3>
+            <ol class="mt-3 space-y-3">
+              <template x-for="(r, i) in wynik.wynik_llm.rekomendacje_nastepne_kroki" :key="i">
+                <li class="flex gap-3 text-sm">
+                  <span class="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center text-xs font-medium shrink-0" x-text="i + 1"></span>
+                  <span class="text-slate-700" x-text="r"></span>
+                </li>
+              </template>
+            </ol>
+          </section>
+        </template>
+
+        <!-- Short-circuit info -->
+        <template x-if="wynik.wynik_reguly.short_circuit">
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-600">
+            <p class="flex gap-2 items-start">
+              <i data-lucide="zap" class="w-4 h-4 mt-0.5 text-amber-600"></i>
+              <span>
+                <strong>Short-circuit:</strong> klasyfikator rozstrzygnął kategorię na poziomie reguł bez wywoływania LLM
+                (system realizuje zakazaną praktykę z Art. 5).
+              </span>
+            </p>
+          </div>
+        </template>
+
+        <!-- Proweniencja korpusu -->
+        <section class="bg-slate-50 rounded-xl p-4 text-xs text-slate-500">
+          <p class="font-medium text-slate-700 mb-1.5">Źródła prawne (wszystkie pobrane bezpośrednio z EUR-Lex):</p>
+          <ul class="space-y-0.5">
+            <template x-for="m in wynik.korpus_meta" :key="m.celex">
+              <li>• <span class="font-medium" x-text="m.akt"></span> · CELEX <span x-text="m.celex"></span> · pobrano <span x-text="m.data_pobrania.slice(0,10)"></span> · sha256 <code x-text="m.sha256.slice(0,12) + '…'"></code></li>
+            </template>
+          </ul>
+          <p class="mt-2 italic" x-text="wynik.disclaimer"></p>
+        </section>
+
+        <!-- Akcje -->
+        <div class="flex items-center justify-between pt-4">
+          <button @click="resetForm()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            Rozpocznij od nowa
+          </button>
+          <button @click="pobierzPDF()" :disabled="pdfLoading"
+            class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 text-white font-medium shadow-sm hover:shadow-md hover:from-brand-700 hover:to-brand-800 transition disabled:opacity-60">
+            <i data-lucide="file-down" class="w-4 h-4" x-show="!pdfLoading"></i>
+            <span x-text="pdfLoading ? 'Generuję PDF…' : 'Pobierz raport PDF'"></span>
+          </button>
+        </div>
+      </div>
+    </template>
+
+  </main>
+
+  <footer class="max-w-5xl mx-auto px-6 py-8 text-center text-xs text-slate-500">
+    Projekt zaliczeniowy · Etyka w AI · WSB 2025/2026 · Dane nie opuszczają EOG (Vertex AI Paryż).
+  </footer>
+
+</body>
+</html>

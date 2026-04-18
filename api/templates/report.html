@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Raport klasyfikacji AI Act</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 18mm 18mm 18mm;
+    @bottom-center {
+      content: "Strona " counter(page) " z " counter(pages);
+      font-family: "Helvetica", Arial, sans-serif;
+      font-size: 8pt;
+      color: #666;
+    }
+  }
+
+  html, body {
+    font-family: "Helvetica", Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    color: #111827;
+  }
+
+  /* Nagłówek dokumentu */
+  h1.doc-title {
+    text-align: center;
+    color: #312e81;
+    font-size: 22pt;
+    margin: 0 0 2mm 0;
+  }
+  .doc-sub {
+    text-align: center;
+    color: #4f46e5;
+    font-size: 12pt;
+    margin: 0 0 5mm 0;
+  }
+  .doc-meta {
+    text-align: center;
+    font-size: 9pt;
+    color: #555;
+    margin-bottom: 6mm;
+    padding-bottom: 3mm;
+    border-bottom: 0.5pt solid #bbb;
+  }
+
+  /* Badge kategorii */
+  .badge {
+    margin: 3mm 0 6mm 0;
+    padding: 5mm 6mm;
+    color: white;
+    border-radius: 2mm;
+  }
+  .badge .label {
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.85;
+  }
+  .badge h2 {
+    margin: 1mm 0 2mm 0;
+    font-size: 22pt;
+    font-weight: 700;
+  }
+  .badge .basis {
+    font-size: 10pt;
+  }
+  .bg-NIEDOPUSZCZALNY { background: #b91c1c; }
+  .bg-WYSOKIE         { background: #ea580c; }
+  .bg-OGRANICZONE     { background: #d97706; }
+  .bg-MINIMALNE       { background: #059669; }
+
+  h3.sec {
+    color: #312e81;
+    font-size: 12pt;
+    margin: 6mm 0 2mm 0;
+    padding-bottom: 1mm;
+    border-bottom: 0.5pt solid #c7d2fe;
+    page-break-after: avoid;
+  }
+
+  p { margin: 0 0 2mm 0; }
+  ul, ol { margin: 1mm 0 3mm 6mm; padding: 0; }
+  li { margin-bottom: 1mm; }
+  code { font-family: "Courier New", monospace; font-size: 9pt; color: #4338ca; background: #eef2ff; padding: 0.3mm 1mm; border-radius: 0.5mm; }
+
+  .box {
+    background: #f9fafb;
+    border: 0.5pt solid #d1d5db;
+    border-radius: 1mm;
+    padding: 3mm 3.5mm;
+    margin: 2mm 0 4mm 0;
+  }
+  .box.warning {
+    background: #fffbeb;
+    border-color: #fcd34d;
+  }
+  .box.warning h3.sec {
+    color: #92400e;
+    border-color: #fcd34d;
+  }
+
+  .two-col {
+    display: table;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 3mm 0;
+  }
+  .two-col .col {
+    display: table-cell;
+    width: 50%;
+    vertical-align: top;
+  }
+
+  .obligation {
+    font-size: 10pt;
+    margin-bottom: 1.5mm;
+  }
+  .obligation .podstawa {
+    font-family: "Courier New", monospace;
+    font-size: 8.5pt;
+    color: #6b7280;
+  }
+
+  .history li {
+    margin-bottom: 1.5mm;
+  }
+  .history .nazwa {
+    font-weight: 600;
+    color: #312e81;
+  }
+  .history .opis {
+    color: #4b5563;
+    font-size: 10pt;
+  }
+
+  /* Stopka proweniencji */
+  .provenance {
+    margin-top: 8mm;
+    padding-top: 3mm;
+    border-top: 0.5pt solid #bbb;
+    font-size: 8.5pt;
+    color: #6b7280;
+  }
+  .provenance h4 {
+    color: #374151;
+    font-size: 10pt;
+    margin: 0 0 2mm 0;
+  }
+  .provenance code { font-size: 8pt; }
+  .disclaimer {
+    margin-top: 4mm;
+    font-style: italic;
+    font-size: 9pt;
+  }
+</style>
+</head>
+<body>
+
+  <h1 class="doc-title">Raport klasyfikacji ryzyka AI Act</h1>
+  <p class="doc-sub">Rozporządzenie Parlamentu Europejskiego i Rady (UE) 2024/1689</p>
+  <p class="doc-meta">
+    Wygenerowano: {{ data_generacji }} · Użytkownik: {{ rola }}
+    {%- if ankieta %} · System: „{{ ankieta.cel_systemu }}"{% endif %}
+  </p>
+
+  <!-- Badge kategorii -->
+  <div class="badge bg-{{ wynik.kategoria.value }}">
+    <p class="label">Kategoria ryzyka</p>
+    <h2>{{ wynik.kategoria.value }}</h2>
+    <p class="basis">
+      Podstawa prawna:
+      {% for ref in wynik.wynik_reguly.legal_basis %}
+        <code>{{ ref }}</code>{% if not loop.last %}, {% endif %}
+      {% else %}
+        brak
+      {% endfor %}
+    </p>
+  </div>
+
+  <!-- Opis systemu (od użytkownika) -->
+  {% if ankieta %}
+  <h3 class="sec">Opis systemu (dane z ankiety)</h3>
+  <div class="box">
+    <p><strong>Opis:</strong> {{ ankieta.opis }}</p>
+    <p><strong>Cel:</strong> {{ ankieta.cel_systemu }}</p>
+    <p><strong>Sektor (Zał. III):</strong> {{ ankieta.sektor.value }} · <strong>Rola:</strong> {{ ankieta.rola.value }} · <strong>Autonomia:</strong> {{ ankieta.autonomia.value }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Uzasadnienie LLM -->
+  {% if wynik.wynik_llm %}
+  <h3 class="sec">Uzasadnienie</h3>
+  <p>{{ wynik.wynik_llm.uzasadnienie }}</p>
+  {% endif %}
+
+  <!-- Historia decyzji klasyfikatora -->
+  <h3 class="sec">Historia decyzji klasyfikatora</h3>
+  <ol class="history">
+    {% for krok in wynik.wynik_reguly.reguly_zastosowane %}
+    <li><span class="nazwa">{{ krok.nazwa }}</span> — <span class="opis">{{ krok.opis }}</span></li>
+    {% endfor %}
+  </ol>
+
+  <!-- Obowiązki -->
+  {% if wynik.wynik_llm %}
+  <div class="two-col">
+    <div class="col">
+      <h3 class="sec">Obowiązki dostawcy</h3>
+      {% if wynik.wynik_llm.obowiazki_dostawcy %}
+      <ul>
+        {% for o in wynik.wynik_llm.obowiazki_dostawcy %}
+        <li class="obligation">{{ o.tekst }} <span class="podstawa">({{ o.podstawa }})</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p><em>Brak specyficznych obowiązków dostawcy.</em></p>
+      {% endif %}
+    </div>
+    <div class="col">
+      <h3 class="sec">Obowiązki deployera</h3>
+      {% if wynik.wynik_llm.obowiazki_deployera %}
+      <ul>
+        {% for o in wynik.wynik_llm.obowiazki_deployera %}
+        <li class="obligation">{{ o.tekst }} <span class="podstawa">({{ o.podstawa }})</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p><em>Brak specyficznych obowiązków deployera.</em></p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Wątpliwości -->
+  {% if wynik.wynik_llm and wynik.wynik_llm.watpliwosci_interpretacyjne %}
+  <div class="box warning">
+    <h3 class="sec">Wątpliwości interpretacyjne</h3>
+    <ul>
+      {% for w in wynik.wynik_llm.watpliwosci_interpretacyjne %}
+      <li>{{ w }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Rekomendacje -->
+  {% if wynik.wynik_llm and wynik.wynik_llm.rekomendacje_nastepne_kroki %}
+  <h3 class="sec">Rekomendowane następne kroki</h3>
+  <ol>
+    {% for r in wynik.wynik_llm.rekomendacje_nastepne_kroki %}
+    <li>{{ r }}</li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+
+  <!-- Short-circuit info -->
+  {% if wynik.wynik_reguly.short_circuit %}
+  <div class="box warning">
+    <strong>Short-circuit:</strong> klasyfikator rozstrzygnął kategorię na poziomie reguł bez wywoływania modelu LLM —
+    system realizuje zakazaną praktykę z Art. 5 AI Act.
+  </div>
+  {% endif %}
+
+  <!-- Proweniencja -->
+  <div class="provenance">
+    <h4>Źródła prawne (pobrane bezpośrednio z EUR-Lex):</h4>
+    <ul>
+      {% for m in wynik.korpus_meta %}
+      <li>
+        {{ m.akt }} · CELEX <code>{{ m.celex }}</code>
+        {% if m.eli %}· ELI <code>{{ m.eli }}</code>{% endif %}
+        · pobrano {{ m.data_pobrania[:10] }}
+        · sha256 <code>{{ m.sha256[:16] }}…</code>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="disclaimer">{{ wynik.disclaimer }}</p>
+  </div>
+
+</body>
+</html>
