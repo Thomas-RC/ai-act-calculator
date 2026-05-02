@@ -31,4 +31,15 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    networks: [default, proxy]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.ai-act.rule=Host(`ai-act.local.pl`)"
+      - "traefik.http.services.ai-act.loadbalancer.server.port=8080"
     restart: unless-stopped
+
+networks:
+  default:
+  proxy:
+    external: true

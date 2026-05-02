@@ -32,3 +32,4 @@ dist/
 # build artifacts
 *.pdf
 !legal_sources/**/*.pdf
+!.doc/**/*.pdf
